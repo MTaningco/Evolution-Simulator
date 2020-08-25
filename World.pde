@@ -137,6 +137,28 @@ class World{
     return cellArray[curRow][curCol].getVegetation();
   }
   
+  public float eatVegCell(float yCoord, float xCoord){
+    int curRow = (int)(yCoord/unitLength);
+    int curCol = (int)(xCoord/unitLength);
+    
+    if(curRow < 0 || curRow >= boardSize || curCol < 0 || curCol >= boardSize){
+      return 0;
+    }
+    
+    return cellArray[curRow][curCol].getFood();
+  }
+  
+  public boolean hasVegCell(float yCoord, float xCoord){
+    int curRow = (int)(yCoord/unitLength);
+    int curCol = (int)(xCoord/unitLength);
+    
+    if(curRow < 0 || curRow >= boardSize || curCol < 0 || curCol >= boardSize){
+      return false;
+    }
+    
+    return cellArray[curRow][curCol].isFertile();
+  }
+  
   //public float 
   
   public float getElevCell(float yCoord, float xCoord){
@@ -196,7 +218,7 @@ class World{
       float creatureX = creature.getX();
       float creatureY = creature.getY();
       float distance = sqrt((x-creatureX)*(x-creatureX) + (y - creatureY)*(y - creatureY));
-      if(distance <= radius && predator.getRanking() > creature.getRanking()){
+      if(distance <= radius && predator.getRanking() > creature.getRanking() + 0.8){
         list.add(creature);
       }
     }
@@ -210,6 +232,11 @@ class World{
       creature.simulate(birthList, killList);
     }
     
+    creatureList.removeAll(killList);
+    creatureList.addAll(birthList);
+    println(creatureList.size());
+    
+    growVegetation();
     //if any of the creatures have an isDead of true, delete them
   }
 }

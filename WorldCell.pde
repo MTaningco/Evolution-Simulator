@@ -1,5 +1,5 @@
 class WorldCell{
-  private final float MAX_VEG = 100;
+  private final float MAX_VEG = 70;
   
   private float elevation;
   private float vegetation;
@@ -78,8 +78,9 @@ class WorldCell{
   */
   public void incrementVegetation(){
     if(isFertile){
-      if(vegetation < 100){
-        vegetation = 1.32980760134*exp(-0.0005*(vegetation - 50)*(vegetation - 50)/(0.32));
+      if(vegetation < MAX_VEG){
+        vegetation += 0.3*exp(-0.0005*(vegetation - MAX_VEG/2.0)*(vegetation - MAX_VEG/2.0)/(0.32));
+        vegetation = min(vegetation, MAX_VEG);
       }
     }
   }
@@ -102,16 +103,10 @@ class WorldCell{
   /*
     Take the vegetation that can be extracted from the cell, and also update the vegetation accordingly
   */
-  public float getFood(float amount){
+  public float getFood(){
     float originalVegetation = vegetation;
-    if(vegetation - amount > 0){
-      vegetation -= amount;
-      return amount;
-    }
-    else{
-      vegetation = 0;
-      return originalVegetation;
-    }
+    vegetation = 0;
+    return originalVegetation;
   }
   
   
@@ -123,6 +118,10 @@ class WorldCell{
   public void incrementTemperature(){
     temperature += 0.5;
     setVegetation(vegetation);
+  }
+  
+  public boolean isFertile(){
+    return isFertile;
   }
   
   public void setVegetation(float startingAmount){

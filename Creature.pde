@@ -12,8 +12,8 @@ class Creature{
   private float y;
   
   //for the programmer
-  private boolean isBrainEvolve;//set to true when training the brain
-  private boolean isCharacteristicsEvolve;//set to true when running the actual simulation
+  private final boolean isBrainEvolve = true;//set to true when training the brain
+  private final boolean isCharacteristicsEvolve = false;//set to true when running the actual simulation
   
   //can be changed by brain
   private float speed;
@@ -23,6 +23,8 @@ class Creature{
   private float healthMeter;//max to 100
   private float foodBar;//max to 100
   private float currentAge;//max to maxAge
+  private float score = 0;
+  private boolean isFertile = true;
   
   //static internal characteristics, inheritable, non derivable
   private String signifier;//this is your hypothetical DNA, make a markov chain machine
@@ -39,7 +41,7 @@ class Creature{
   private float maxSpeed;//shows how fast you can travel around, derivable from metabolism, proportionate to metabolism
   private float maxAge;//shows the age at which you can go till, inversely proportionate to metabolism
   private float matureAge;//shows when the creature can reproduce asexually
-  private int maxBirths;//shows how many at most the creature can reproduce, proportionate to metabolism and baseWeight, high metabolism causes higher births, high baseWeight causes lower births
+  private float maxBirths;//shows how many at most the creature can reproduce, proportionate to metabolism and baseWeight, high metabolism causes higher births, high baseWeight causes lower births
   private float radius;
   
   public Creature(World world, float x, float y){
@@ -48,26 +50,61 @@ class Creature{
     
     healthMeter = 100;
     foodBar = 100;
+    currentAge = 6;
     
     signifier = "a";
     creatureColorHue = 0;
     baseWeight = 10;
     metabolism = 1;
     
-    foodChainStanding = metabolism + baseWeight;
-    visibilityDistance = world.getUnitLength() * metabolism;
-    maxSpeed = metabolism * 1;
-    maxAge = 10.0/metabolism;
-    matureAge = maxAge/2.0;
-    maxBirths = (int)(20 * metabolism / baseWeight);
+    foodChainStanding = metabolism + baseWeight;//11
+    visibilityDistance = world.getUnitLength() * metabolism;//1
+    maxSpeed = metabolism * 1;//1
+    maxAge = 10.0/metabolism;//10
+    matureAge = maxAge/2.0;//5
+    maxBirths = (20 * metabolism / baseWeight);
     radius = baseWeight;
+    comfortableTemp = 5;
+    comfortableElevation = 0;
     
-    int[] layers = {inputSize, 6, 6, 1};
+    int[] layers = {inputSize, 6, 6, 2};
     neuralNetwork = new NeuralNetwork(layers);
     
     this.world = world;
     this.x = x;
     this.y = y;
+  }
+  
+  public Creature(Creature parent){
+    speed = 0; //<>//
+    angleDirection = random(2*PI);
+    
+    healthMeter = 100;
+    foodBar = 100;
+    currentAge = 0;
+    
+    signifier = "a";
+    creatureColorHue = (int)((parent.creatureColorHue + random(5) - 2.5)%256);
+    baseWeight = parent.baseWeight + random(0.5) - 0.25;
+    metabolism = parent.metabolism + random(0.5) - 0.25;
+    
+    
+    this.world = parent.world;
+    
+    foodChainStanding = metabolism + baseWeight;//11
+    visibilityDistance = world.getUnitLength() * metabolism;//1
+    maxSpeed = metabolism * 1;//1
+    maxAge = 10.0/metabolism;//10
+    matureAge = maxAge/2.0;//5
+    maxBirths = (20 * metabolism / baseWeight);
+    radius = baseWeight;
+    comfortableTemp = parent.comfortableTemp + random(2) - 1;
+    comfortableElevation = parent.comfortableElevation + random(1) - 0.5;
+    
+    neuralNetwork = parent.neuralNetwork.mutate(0.01,0.5);
+    
+    this.x = parent.x;
+    this.y = parent.y; //<>//
   }
   
   public float getX(){
@@ -128,9 +165,13 @@ class Creature{
     
     //move to that direction using the brain
     
-    angleDirection += output[0];
+    angleDirection += output[0]*PI/2.0;
+    speed = maxSpeed * ((output[1] + 1)/2.0);
     angleDirection = standardizeAngle(angleDirection);
+    float initX = x;
+    float initY = y;
     move();
+    score += sqrt(pow(x-initX, 2) + pow(y-initY, 2));
     constrainPosition();
     
     //update food and health meters, set any creature to isDead if necessary
@@ -146,16 +187,52 @@ class Creature{
       prey.setHealth(0);//this kills the prey
     }
     
-    if(foodBar < maxFoodBar){
+    if(foodBar < maxFoodBar && world.hasVegCell(y, x)){
       //eat the thing below you
+      float veg = world.eatVegCell(y, x);
+      score += veg;
+      foodBar = min(foodBar+veg, maxFoodBar);
       
     }
-    
+    //println(score);
     //update other internal characteristics
+    foodBar -= metabolism;
+    foodBar = max(foodBar, 0);
     
     //see if you can birth
+    if(currentAge > matureAge && isFertile){
+      isFertile = false; //<>//
+      boolean gaveBirth = false;
+      for(int i = 0; i < (int)random(maxBirths); i++){
+        gaveBirth = true;
+        birthList.add(new Creature(this));
+      }
+      isFertile = !gaveBirth;
+    }
     
     //die if you can 
+    if(foodBar == 0){
+      healthMeter -= 0.5;
+    }
+    else if(foodBar > 50){
+      healthMeter += 1;
+    }
+    
+    if(abs(wc.getElevation() - comfortableElevation) > 5.0){
+      healthMeter -= 0.1;
+    }
+    if(abs(wc.getTemperature() - comfortableTemp) > 5.0){
+      healthMeter -= 1;
+    }
+    healthMeter = min(healthMeter, 100);
+    healthMeter = max(healthMeter, 0);
+    
+    currentAge += 0.005;
+    //println(currentAge + " " + maxAge + " " + healthMeter);
+    if(currentAge > maxAge || healthMeter <= 0){
+      //println("remove");
+      killList.add(this);
+    }
   }
   
   //done check
@@ -326,14 +403,17 @@ class Creature{
   
   private void constrainPosition(){
     x = x < 0 ? 0 : x;
-    x = x > world.getPix() ? world.getPix() : x;
+    x = x >= world.getPix() ? world.getPix()-1 : x;
     y = y < 0 ? 0 : y;
-    y = y > world.getPix() ? world.getPix() : y;
+    y = y >= world.getPix() ? world.getPix()-1 : y;
   }
   
   private void move(){
     //using the specific direction and magnitude of the speed, move that way
-    float xDirection = cos(angleDirection) * speed + x;
-    float yDirection = sin(angleDirection) * speed + y;
+    //float xDirection = cos(angleDirection) * speed + x;
+    //float yDirection = sin(angleDirection) * speed + y;
+    //println(speed);
+    x = cos(angleDirection) * speed + x; //<>//
+    y = sin(angleDirection) * speed + y;
   }
 }

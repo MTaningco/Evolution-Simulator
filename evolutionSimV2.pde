@@ -1,5 +1,5 @@
-public static final float ACTIVITY_WIDTH = 1380;
-public static final float ACTIVITY_HEIGHT = 1380;
+public static final float ACTIVITY_WIDTH = 1300;
+public static final float ACTIVITY_HEIGHT = 1300;
 World w;
 
 public void settings(){
@@ -8,7 +8,7 @@ public void settings(){
 
 void setup() {
   w = new World(100, (int)ACTIVITY_WIDTH, 0.06, 1);
-  noLoop();
+  //noLoop();
 } 
 
 void draw(){
